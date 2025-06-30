@@ -4,7 +4,10 @@ use std::marker::PhantomData;
 
 pub use error::Error;
 
-use crate::arena::{Arena, Key};
+use crate::{
+    arena::{Arena, Key},
+    flavor::Flavor,
+};
 
 pub trait BaseNode {}
 pub trait DirectedNode {}
@@ -28,38 +31,16 @@ pub struct Edge<T> {
 pub struct NodeKey;
 pub struct EdgeKey;
 
-pub enum Direction {
-    Directed,
-    Undirected,
-    Mixed,
-}
-
-pub trait Flavor {
-    type Node;
-    type Edge;
-    const MULTIGRAPH: bool;
-    const CYCLIC: bool;
-    const DIRECTED: Direction;
-}
-
-pub struct Graph<F>
-where
-    F: Flavor,
-{
+pub struct Graph<F: Flavor> {
     nodes: Arena<Node<F::Node>, NodeKey>,
     edges: Arena<Edge<F::Edge>, EdgeKey>,
-    phantom: PhantomData<F>,
 }
 
-impl<F> Graph<F>
-where
-    F: Flavor,
-{
+impl<F: Flavor> Graph<F> {
     pub fn new() -> Self {
         Self {
             nodes: Default::default(),
             edges: Default::default(),
-            phantom: PhantomData,
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::coord::Coordinate;
+use crate::{coord::Coordinate, dcel::flavor::Flavor};
 use std::fmt::Write;
 
 use super::Dcel;
@@ -36,10 +36,9 @@ fn offset_line(
     (new_start, new_end)
 }
 
-pub fn vis_svg<V, E, F>(dcel: &Dcel<V, E, F>) -> String
+pub fn vis_svg<F: Flavor>(dcel: &Dcel<F>) -> String
 where
-    V: Coordinate,
-    F: Default,
+    F::Vertex: Coordinate,
 {
     let mut svg = String::new();
     svg.push_str(
@@ -48,25 +47,37 @@ where
 			<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
 				markerWidth="2" markerHeight="2"
 				orient="auto-start-reverse">
-			<path d="M 0 0 L 10 5 L 0 10 z" fill="black" />
+			<path d="M 0 0 L 10 5 L 0 10 z" fill="white" />
 			</marker>
 		</defs>
 		"#,
     );
 
+    let mut labels = String::new();
+    let mut edges = String::new();
+    let mut vertices = String::new();
+
     // Draw vertices
-    for (v, _) in dcel.vertices.iter() {
-        let [x, y] = v.weight.xy();
+    for (vertex, key) in dcel.vertices.iter() {
+        let [x, y] = vertex.weight.xy();
         write!(
-            &mut svg,
+            &mut vertices,
             r#"<circle cx="{x}" cy="{y}" r="0.5" fill="red"/>"#
+        )
+        .unwrap();
+
+        write!(
+            &mut labels,
+            r#"<text x="{x}" y="{y}" font-size="0.4" fill="white" dx="0" dy="0">{}</text>"#,
+            key.get()
         )
         .unwrap();
     }
 
     // Draw edges with direction
     for (edge, key) in dcel.edges.iter() {
-        let from = &dcel.vertices[dcel.edges[key].origin];
+        println!("vis {key} {} {}", edge.origin, edge.next);
+        let from = &dcel.vertices[edge.origin];
         let to = &dcel.vertices[dcel.edges[edge.next].origin];
 
         let [x1, y1] = from.weight.xy();
@@ -75,12 +86,26 @@ where
         let ((x1, y1), (x2, y2)) = offset_line(x1, y1, x2, y2, 0.2, 0.2);
 
         write!(
-				&mut svg,
+				&mut edges,
 				r#"<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black" stroke-width="0.2" marker-end="url(#arrow)"/>"#
 			)
 			.unwrap();
+
+        // Compute midpoint for label
+        let mx = (x1 + x2) / 2.0;
+        let my = (y1 + y2) / 2.0;
+
+        write!(
+            &mut labels,
+            r#"<text x="{mx}" y="{my}" font-size="0.4" fill="white" dx="0" dy="0">{}</text>"#,
+            key.get()
+        )
+        .unwrap();
     }
 
+    svg.push_str(&vertices);
+    svg.push_str(&edges);
+    svg.push_str(&labels);
     svg.push_str("</svg>");
 
     svg

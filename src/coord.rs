@@ -54,6 +54,24 @@ pub trait FromCoordinate {
     }
 }
 
+impl FromCoordinate for [f32; 2] {
+    fn from_xyz([x, y, z]: [Precision; 3]) -> Self
+    where
+        Self: Sized,
+    {
+        [x, y]
+    }
+}
+
+impl FromCoordinate for [f32; 3] {
+    fn from_xyz(xyz: [Precision; 3]) -> Self
+    where
+        Self: Sized,
+    {
+        xyz
+    }
+}
+
 pub trait UpdateCoordinate {
     fn set_xyz(&mut self, xyz: [Precision; 3]);
     fn set_xy(&mut self, [x, y]: [Precision; 2]) {

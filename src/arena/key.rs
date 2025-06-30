@@ -1,4 +1,5 @@
 use std::{
+    any::type_name,
     hash::{Hash, Hasher},
     marker::PhantomData,
     num::NonZeroU32,
@@ -39,7 +40,13 @@ impl<'de, T> Deserialize<'de> for Key<T> {
 
 impl<T> std::fmt::Display for Key<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.get())
+        write!(f, "{}({})", type_name::<T>(), self.get())
+    }
+}
+
+impl<T> std::fmt::Debug for Key<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({})", type_name::<T>(), self.get())
     }
 }
 
@@ -122,4 +129,10 @@ impl<T> Key<T> {
     pub fn get(&self) -> u32 {
         self.0.get()
     }
+}
+
+#[macro_export]
+macro_rules! key {
+    ($name:ident) => {};
+    (pub $name:ident) => {};
 }

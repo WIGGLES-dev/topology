@@ -7,9 +7,9 @@ pub struct ShoeString {
 
 impl ShoeString {
     pub fn add(&mut self, v1: &impl Coordinate, v2: &impl Coordinate) {
-        let [x0, y0] = v1.xy();
+        let [x, y] = v1.xy();
         let [x1, y1] = v2.xy();
-        self.area_sum += (x0 * y1) - (y0 * x1)
+        self.area_sum += x * y1 - y * x1;
     }
 
     pub fn area(&self) -> f32 {

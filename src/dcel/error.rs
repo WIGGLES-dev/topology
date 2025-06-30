@@ -1,12 +1,16 @@
+use std::slice::GetDisjointMutError;
+
 use super::{EdgeKey, FaceKey, Key, VertexKey};
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     VertexDoesNotExist,
     EdgeDoesNotExist,
     FaceDoesNotExist,
     PlanarConflict,
-    IsolatedVertex,
+    NoBoundingFace,
+    NonDisjoint(GetDisjointMutError),
+    DisconnectedVertex,
 }
 
 impl std::fmt::Display for Error {

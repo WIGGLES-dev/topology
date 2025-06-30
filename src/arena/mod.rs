@@ -1,8 +1,19 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    mem::ManuallyDrop,
+    ops::{Index, IndexMut},
+    slice::GetDisjointMutError,
+};
 
 mod key;
+mod mask;
 
 pub use key::Key;
+pub use mask::ArenaBitMask;
+
+pub enum Slot<T, K> {
+    Filled(T),
+    Empty(Key<K>),
+}
 
 pub struct Arena<T, K = ()> {
     inner: Vec<Option<T>>,
@@ -25,6 +36,21 @@ impl<T, K> Arena<T, K> {
         Self::default()
     }
 
+    pub fn new_with_zero(zero: T) -> Self {
+        Self {
+            inner: vec![Some(zero)],
+            ..Default::default()
+        }
+    }
+
+    pub fn zero(&self) -> &Option<T> {
+        &self.inner[0]
+    }
+
+    pub fn zero_mut(&mut self) -> &mut Option<T> {
+        &mut self.inner[0]
+    }
+
     pub fn from_iter(iter: impl Iterator<Item = T>) -> Self {
         let mut inner = Vec::new();
         inner.push(None);
@@ -43,7 +69,7 @@ impl<T, K> Arena<T, K> {
         key
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.inner.len()
     }
 
@@ -58,11 +84,45 @@ impl<T, K> Arena<T, K> {
         }
     }
 
+    pub fn get_many<const N: usize>(&self, keys: [Key<K>; N]) -> [Option<&T>; N] {
+        let mut out: [Option<&T>; N] = [None; N];
+        for (i, key) in keys.iter().enumerate() {
+            out[i] = self.get(*key);
+        }
+        return out;
+    }
+
     pub fn get_mut(&mut self, key: Key<K>) -> Option<&mut T> {
         match self.inner.get_mut(key.get() as usize) {
             Some(Some(t)) => Some(t),
             _ => None,
         }
+    }
+
+    pub fn get_disjoint_mut<const N: usize>(
+        &mut self,
+        keys: [Key<K>; N],
+    ) -> Result<[&mut Option<T>; N], GetDisjointMutError> {
+        let mut indices: [usize; N] = [0; N];
+        for (i, key) in keys.iter().enumerate() {
+            indices[i] = key.get() as usize;
+        }
+        let v = self.inner.get_disjoint_mut(indices);
+
+        v
+    }
+
+    pub unsafe fn get_disjoint_unchecked_mut<const N: usize>(
+        &mut self,
+        keys: [Key<K>; N],
+    ) -> [&mut Option<T>; N] {
+        let mut indices: [usize; N] = [0; N];
+        for (i, key) in keys.iter().enumerate() {
+            indices[i] = key.get() as usize;
+        }
+        let v = unsafe { self.inner.get_disjoint_unchecked_mut(indices) };
+
+        v
     }
 
     pub fn set(&mut self, key: Key<K>, value: T) {
@@ -75,9 +135,13 @@ impl<T, K> Arena<T, K> {
 
     pub fn remove(&mut self, key: Key<K>) -> Option<T> {
         let idx = key.get();
-        self.free.push(idx);
         if let Some(value) = self.inner.get_mut(key.get() as usize) {
-            return value.take();
+            if let Some(value) = value.take() {
+                self.free.push(idx);
+                return Some(value);
+            } else {
+                return None;
+            }
         }
         None
     }
@@ -95,9 +159,15 @@ impl<T, K> Arena<T, K> {
     }
 
     pub fn reserve(&mut self) -> Key<K> {
-        let key = self.new_key();
-        self.inner.push(None);
-        key
+        if let Some(idx) = self.free.pop() {
+            self.inner[idx as usize] = None;
+            let key = unsafe { Key::new_unchecked(idx) };
+            key
+        } else {
+            let key = self.new_key();
+            self.inner.push(None);
+            key
+        }
     }
 
     pub fn key(&self, pos: u32) -> Option<Key<K>> {
@@ -137,7 +207,10 @@ impl<T, K> Arena<T, K> {
 impl<T, K> Index<Key<K>> for Arena<T, K> {
     type Output = T;
     fn index(&self, index: Key<K>) -> &Self::Output {
-        &self.get(index).unwrap()
+        match self.get(index) {
+            Some(v) => v,
+            None => panic!("{} is out of bounds", index),
+        }
     }
 }
 
