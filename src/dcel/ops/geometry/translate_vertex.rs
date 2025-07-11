@@ -11,8 +11,24 @@ use crate::{
 };
 
 pub struct TranslateVertex {
-    vertex: Key<VertexKey>,
-    coord: [f32; 3],
+    pub vertex: Key<VertexKey>,
+    pub delta: [f32; 3],
+}
+
+impl TranslateVertex {
+    pub fn from_absolute<F: Flavor>(
+        dcel: &Dcel<F>,
+        key: Key<VertexKey>,
+        absolute: impl Coordinate,
+    ) -> Self
+    where
+        F::Vertex: Coordinate,
+    {
+        let [x, y, z] = key.weight(dcel).xyz();
+        let [tx, ty, tz] = absolute.xyz();
+        let delta = [tx - x, ty - y, tz - z];
+        TranslateVertex { vertex: key, delta }
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -25,23 +41,21 @@ impl<F: Flavor> Operator<F> for TranslateVertex
 where
     F::Vertex: Coordinate + UpdateCoordinate,
 {
-    type Check = ();
     type Error = TranslateVertexError;
     type Inverse = TranslateVertex;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
-        let current_coord = self.vertex.weight(dcel).xyz();
-        dcel.vertex_mut(self.vertex).weight.set_xyz(self.coord);
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+        let [x, y, z] = self.vertex.weight(dcel).xyz();
+        let [dx, dy, dz] = self.delta.xyz();
+        dcel.vertex_mut(self.vertex)
+            .weight
+            .set_xyz([x + dx, y + dy, z + dz]);
         Ok(TranslateVertex {
             vertex: self.vertex,
-            coord: current_coord,
+            delta: [-dx, -dy, -dz],
         })
     }
 }

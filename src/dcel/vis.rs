@@ -1,4 +1,7 @@
-use crate::{coord::Coordinate, dcel::flavor::Flavor};
+use crate::{
+    coord::Coordinate,
+    dcel::{Traverser, flavor::Flavor},
+};
 use std::fmt::Write;
 
 use super::Dcel;
@@ -74,9 +77,26 @@ where
         .unwrap();
     }
 
+    // for (face, key) in dcel.faces.iter() {
+    //     let mut trav = Traverser::through(dcel, face.edge).unwrap();
+    //     let mut path = String::new();
+    //     let start = trav.next();
+    //     let [x, y] = face.edge.origin(dcel).weight(dcel).xy();
+    //     write!(&mut path, "M {x} {y} ").unwrap();
+
+    //     for edge in trav {
+    //         let [x, y] = edge.origin(dcel).weight(dcel).xy();
+    //         write!(&mut path, "L {x} {y} ").unwrap();
+    //     }
+    //     write!(
+    //         &mut edges,
+    //         r#"<path stroke-width="0.1" d="{path}" stroke="black" fill="transparent" />"#
+    //     )
+    //     .unwrap();
+    // }
+
     // Draw edges with direction
     for (edge, key) in dcel.edges.iter() {
-        println!("vis {key} {} {}", edge.origin, edge.next);
         let from = &dcel.vertices[edge.origin];
         let to = &dcel.vertices[dcel.edges[edge.next].origin];
 
@@ -86,10 +106,10 @@ where
         let ((x1, y1), (x2, y2)) = offset_line(x1, y1, x2, y2, 0.2, 0.2);
 
         write!(
-				&mut edges,
-				r#"<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black" stroke-width="0.2" marker-end="url(#arrow)"/>"#
-			)
-			.unwrap();
+        		&mut edges,
+        		r#"<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="black" stroke-width="0.2" marker-end="url(#arrow)"/>"#
+        	)
+        	.unwrap();
 
         // Compute midpoint for label
         let mx = (x1 + x2) / 2.0;

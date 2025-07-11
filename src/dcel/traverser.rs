@@ -117,6 +117,14 @@ impl<F: Flavor> Traverser<F> {
     where
         F::Vertex: Coordinate,
     {
+        let calc = Self::shoestring(dcel, edge)?;
+        Ok(calc.area())
+    }
+
+    pub fn shoestring(dcel: &Dcel<F>, edge: Key<EdgeKey>) -> Result<ShoeString, Error>
+    where
+        F::Vertex: Coordinate,
+    {
         let mut calc = ShoeString::default();
         for edge in Traverser::through(dcel, edge)? {
             let origin = dcel.edges[edge].origin;
@@ -125,7 +133,7 @@ impl<F: Flavor> Traverser<F> {
             let v2 = &dcel.vertices[twin_origin].weight;
             calc.add(v1, v2);
         }
-        Ok(calc.area())
+        Ok(calc)
     }
 
     pub fn around<'a>(

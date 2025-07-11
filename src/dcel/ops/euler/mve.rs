@@ -44,17 +44,12 @@ where
 {
     type Inverse = Kve;
     type Error = MevError;
-    type Check = ();
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         //
         //    > o >
         //  a |   | b
@@ -92,7 +87,6 @@ where
             weight: vertex_weight,
         });
 
-        println!("{} {}", self.origin, vertex);
         let [outgoing_prev, outgoing_next] = Linker::find_prev_next(dcel, self.origin, vertex);
         let outgoing_face = outgoing_prev.twin(dcel).face(dcel);
 
@@ -171,9 +165,8 @@ where
 {
     type Inverse = Mve<F>;
     type Error = KveError;
-    type Check = ();
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         let [outgoing, incoming] = self.edges;
         let outgoing_face = outgoing.face(dcel);
         let incoming_face = incoming.face(dcel);
@@ -191,13 +184,8 @@ where
 
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         let mut linker = Linker::new();
-        println!("kve {} {:?}", self.vertex, self.edges);
         // dcel.vertex(self.vertex);
 
         let [outgoing, incoming] = self.edges;

@@ -21,16 +21,11 @@ impl<F: Flavor> Mev<F> {
 impl<F: Flavor> Operator<F> for Mev<F> {
     type Inverse = Kev;
     type Error = Infallible;
-    type Check = ();
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         todo!()
     }
 }
@@ -40,16 +35,11 @@ pub struct Kev {}
 impl<F: Flavor> Operator<F> for Kev {
     type Inverse = Mev<F>;
     type Error = Infallible;
-    type Check = ();
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         todo!()
     }
 }

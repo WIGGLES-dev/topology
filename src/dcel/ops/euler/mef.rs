@@ -2,10 +2,10 @@ use std::convert::Infallible;
 
 use crate::{
     arena::Key,
-    coord::Coordinate,
+    coord::{Coordinate, Orientation},
     dcel::{
-        Dcel, Edge, EdgeKey, EdgePtrs, Face, FaceKey, FaceMask, FacePtrs, Keyed, Traverser, Vertex,
-        VertexKey, VertexPtrs,
+        Dcel, Edge, EdgeKey, EdgePtrs, Face, FaceKey, FaceMask, FacePtrs, Keyed, Op, Traverser,
+        Vertex, VertexKey, VertexPtrs,
         flavor::Flavor,
         linker::Linker,
         ops::{Operator, OperatorErr},
@@ -16,12 +16,6 @@ use crate::{
 pub struct Mef<F: Flavor> {
     pub vertices: [Key<VertexKey>; 2],
     pub data: (F::Face, F::Edge, F::Edge),
-}
-
-impl<F: Flavor> Mef<F> {
-    pub fn new(vertices: [Key<VertexKey>; 2], data: (F::Face, F::Edge, F::Edge)) -> Self {
-        Self { vertices, data }
-    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -38,28 +32,33 @@ where
 {
     type Inverse = Kef;
     type Error = MefError;
-    type Check = Key<FaceKey>;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         let [v1, v2] = self.vertices;
-        dcel.vertices.get(v1).ok_or(MefError::IsolatedVertex)?;
-        dcel.vertices.get(v2).ok_or(MefError::IsolatedVertex)?;
+        let Some(_) = dcel.vertices.get(v1) else {
+            return Err(MefError::IsolatedVertex);
+        };
+        let Some(_) = dcel.vertices.get(v2) else {
+            return Err(MefError::IsolatedVertex);
+        };
 
-        for edge in Traverser::around(dcel, v1).unwrap() {
-            for edge in Traverser::through(dcel, edge).unwrap() {
-                if edge.twin(dcel).origin(dcel) == v2 {
-                    return Ok(edge.face(dcel));
-                }
-            }
+        let [outgoing_local_prev, outgoing_local_next] = Linker::find_prev_next(dcel, v1, v2);
+        let [incoming_local_prev, incoming_local_next] = Linker::find_prev_next(dcel, v2, v1);
+
+        // this will become outgoing.next
+        let outgoing_face = incoming_local_prev.face(dcel);
+        // this will become incoming.next
+        let incoming_face = outgoing_local_prev.face(dcel);
+
+        // if they aren't equal we can't split this face
+        if outgoing_face != incoming_face {
+            return Err(MefError::FaceMismatch);
         }
-        return Err(MefError::FaceMismatch);
+
+        Ok(())
     }
 
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         // before:
         //     >               >
         //   a0 \             / a2
@@ -69,7 +68,7 @@ where
         //
         // after:
         //     >               >
-        //   a0 \    outgoing ->    / a2
+        //   a0 \    a1 ->    / a2
         //       v1         v2
         //   b0 /    <- b1    \ b2
         //     <               <
@@ -77,21 +76,25 @@ where
 
         let [v1, v2] = self.vertices;
 
-        let outgoing = dcel.edges.reserve();
-        let incoming = dcel.edges.reserve();
-
         let [outgoing_local_prev, outgoing_local_next] = Linker::find_prev_next(dcel, v1, v2);
         let [incoming_local_prev, incoming_local_next] = Linker::find_prev_next(dcel, v2, v1);
 
-        // incoming is set to be the opposite of mvvef so that edge loops alternate direction
-        let face = dcel.faces.insert(Face {
-            inner: FacePtrs {
-                edge: incoming,
-                holes: vec![],
-                mask: FaceMask::IS_BOUNDARY,
-            },
-            weight: self.data.0,
-        });
+        // this will become outgoing.next
+        let outgoing_face = incoming_local_prev.face(dcel);
+        // this will become incoming.next
+        let incoming_face = outgoing_local_prev.face(dcel);
+
+        // if they aren't equal we can't split this face
+        if outgoing_face != incoming_face {
+            return Err(OperatorErr {
+                op: self,
+                err: MefError::FaceMismatch,
+            });
+        }
+        let input = &outgoing_face;
+
+        let outgoing = dcel.edges.reserve();
+        let incoming = dcel.edges.reserve();
 
         dcel.edges.set(
             outgoing,
@@ -101,7 +104,7 @@ where
                     twin: incoming,
                     prev: incoming,
                     next: incoming,
-                    face: outgoing_local_prev.twin(dcel).face(dcel),
+                    face: *input,
                 },
                 weight: self.data.1,
             },
@@ -115,16 +118,43 @@ where
                     twin: outgoing,
                     prev: outgoing,
                     next: outgoing,
-                    face: face,
+                    face: *input,
                 },
                 weight: self.data.2,
             },
         );
 
-        Linker::splice_edge(dcel, outgoing, outgoing_local_prev, outgoing_local_next);
-        Linker::splice_edge(dcel, incoming, incoming_local_prev, incoming_local_next);
+        // Linker::splice_edge(dcel, outgoing, outgoing_local_prev, outgoing_local_next);
+        // Linker::splice_edge(dcel, incoming, incoming_local_prev, incoming_local_next);
 
-        dcel.propagate_face(incoming, face).unwrap();
+        Linker::follow(dcel, outgoing_local_next.twin(dcel), outgoing);
+        Linker::follow(dcel, outgoing, incoming_local_prev);
+
+        Linker::follow(dcel, incoming_local_next.twin(dcel), incoming);
+        Linker::follow(dcel, incoming, outgoing_local_prev);
+
+        let face_orientation = Traverser::shoestring(dcel, input.edge(dcel))
+            .unwrap()
+            .orientation();
+
+        let outgoing_orientation = Traverser::shoestring(dcel, outgoing).unwrap().orientation();
+
+        // use the edge that causes the opposite orientation of the face we are splitting
+        let propagate = if face_orientation == outgoing_orientation {
+            incoming
+        } else {
+            outgoing
+        };
+        let face = dcel.faces.insert(Face {
+            inner: FacePtrs {
+                edge: propagate,
+                holes: vec![],
+                mask: FaceMask::IS_BOUNDARY,
+            },
+            weight: self.data.0,
+        });
+
+        dcel.propagate_face(propagate, face).unwrap();
 
         Ok(Kef {
             face,
@@ -138,14 +168,11 @@ pub struct Kef {
     pub edges: [Key<EdgeKey>; 2],
 }
 
-impl Kef {
-    pub fn new(face: Key<FaceKey>, edges: [Key<EdgeKey>; 2]) -> Self {
-        Self { face, edges }
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
-pub enum KefError {}
+pub enum KefError {
+    #[error("splitting face and face do not share an edge")]
+    FaceMismatch,
+}
 
 impl<F: Flavor> Operator<F> for Kef
 where
@@ -153,16 +180,11 @@ where
 {
     type Inverse = Mef<F>;
     type Error = Infallible;
-    type Check = ();
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         let [e1, e2] = self.edges;
         println!("kef {e1} {e2}");
         let e1f = e1.face(dcel);
@@ -174,8 +196,8 @@ where
 
         Linker::unsplice_edge(dcel, self.edges);
 
-        let outgoing = dcel.edges.remove(self.edges[0]).unwrap();
-        let incoming = dcel.edges.remove(self.edges[1]).unwrap();
+        let outgoing = dcel.edges.remove(e1).unwrap();
+        let incoming = dcel.edges.remove(e2).unwrap();
         let face = dcel.faces.remove(self.face).unwrap();
 
         Ok(Mef {

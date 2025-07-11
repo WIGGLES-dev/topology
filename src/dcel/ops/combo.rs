@@ -31,7 +31,6 @@ impl CollapseEdge {
             let twin = edge.twin(dcel);
             let is_cyclic = edge_origin != origin && twin.next(dcel) == edge.prev(dcel).twin(dcel);
             if is_cyclic {
-                println!("skipping cyclic {edge}");
                 return None;
             };
 
@@ -47,8 +46,8 @@ impl CollapseEdge {
                 let kill_twin = kill.twin(dcel);
 
                 Some(Kef {
-                    edges: [kill, kill_twin],
                     face,
+                    edges: [kill, kill_twin],
                 })
             } else {
                 None
@@ -105,7 +104,7 @@ pub struct WeldVertex<F: Flavor> {
     collapse: CollapseEdge,
 }
 
-pub struct UnweldVertices<F: Flavor> {
+pub struct UnweldVertex<F: Flavor> {
     unbridge: Option<Kef>,
     uncollapse: UncollapseEdge<F>,
 }
@@ -129,13 +128,10 @@ where
             data: (Default::default(), Default::default(), Default::default()),
         };
 
-        // if the two vertices don't have a common face to split we fall back to Mekh
-        if let Err(_) = mef.check(dcel) {
-            return LinkVertices::Mekh(Mekh {});
+        match mef.check(dcel) {
+            Ok(_) => LinkVertices::Mef(mef),
+            Err(_) => LinkVertices::Mekh(Mekh {}),
         }
-
-        // otherwise we split the face
-        LinkVertices::Mef(mef)
     }
 
     pub fn apply(self, dcel: &mut Dcel<F>) -> UnlinkVertices {

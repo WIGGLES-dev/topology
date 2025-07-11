@@ -93,7 +93,7 @@ impl Winding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Orientation {
     Clockwise(Precision),
     Counterclockwise(Precision),

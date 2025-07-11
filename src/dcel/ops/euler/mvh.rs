@@ -18,19 +18,14 @@ pub struct Mvh<F: Flavor> {
 pub enum MvhError {}
 
 impl<F: Flavor> Operator<F> for Mvh<F> {
-    type Check = ();
     type Error = Infallible;
     type Inverse = Kvh;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         let vertex = dcel.vertices.insert(Vertex {
             inner: VertexPtrs { edge: None },
             weight: self.vertex,
@@ -51,18 +46,13 @@ pub enum KvError {
 }
 
 impl<F: Flavor> Operator<F> for Kvh {
-    type Check = ();
     type Error = KvError;
     type Inverse = Mvh<F>;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         let vertex = dcel.vertices.remove(self.vertex).unwrap().weight;
         match dcel.vertices.remove(self.vertex) {
             Some(Vertex { weight, .. }) => Ok(Mvh { vertex }),

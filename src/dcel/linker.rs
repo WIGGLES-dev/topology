@@ -43,9 +43,16 @@ impl<F: Flavor> Linker<F> {
         local_prev: Key<EdgeKey>,
         local_next: Key<EdgeKey>,
     ) {
+        // setting twin pointers
+
+        // edge.next = edge.twin.local_prev
         Self::splice_prev(dcel, edge, local_prev);
+
+        // edge.prev = local_next.twin
         Self::splice_next(dcel, edge, local_next);
     }
+
+    pub fn find_loop_prev_next(dcel: &Dcel<F>) {}
 
     /// Atomically link two vertices in their clockwise cyclic traversal order. THIS WILL INVALIDATE FACE INVARIANTS
     pub fn splice_edges(dcel: &mut Dcel<F>, edges: [(Key<EdgeKey>, Key<VertexKey>); 2])
@@ -76,15 +83,16 @@ impl<F: Flavor> Linker<F> {
                 let alt = e.twin(dcel).next(dcel);
                 dcel.vertex_mut(eo).edge = if alt == e { None } else { Some(alt) };
             }
+            let f = e.face(dcel);
+            if f.edge(dcel) == e {
+                dcel.face_mut(f).edge = e.next(dcel);
+            }
         }
 
         let a = e1.prev(dcel);
         let b = e2.next(dcel);
         let c = e2.prev(dcel);
         let d = e1.next(dcel);
-
-        println!("{a} follows {b}");
-        println!("{c} follows {d}");
 
         Self::follow(dcel, a, b);
         Self::follow(dcel, c, d);

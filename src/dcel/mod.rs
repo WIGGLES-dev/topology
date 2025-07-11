@@ -19,7 +19,7 @@ use error::Error::{self, EdgeDoesNotExist, FaceDoesNotExist, VertexDoesNotExist}
 
 pub use entities::*;
 pub use flavor::Flavor;
-pub use ops::{EulerOp, GeometryOp, Op, Operator, OperatorErr};
+pub use ops::{Op, Operator, OperatorErr};
 pub use traverser::*;
 
 use crate::{
@@ -29,11 +29,11 @@ use crate::{
 
 pub struct Dcel<F: Flavor> {
     /// all vertices
-    vertices: Arena<Vertex<F::Vertex>, VertexKey>,
+    pub vertices: Arena<Vertex<F::Vertex>, VertexKey>,
     /// all half edge pairs
-    edges: Arena<Edge<F::Edge>, EdgeKey>,
+    pub edges: Arena<Edge<F::Edge>, EdgeKey>,
     /// all faces
-    faces: Arena<Face<F::Face>, FaceKey>,
+    pub faces: Arena<Face<F::Face>, FaceKey>,
     /// the top level bounding face
     bounding_face: Option<Key<FaceKey>>,
 }
@@ -197,7 +197,7 @@ impl<F: Flavor> Dcel<F> {
         op: Op,
     ) -> Result<Op::Inverse, OperatorErr<Op, Op::Error>> {
         match op.check(self) {
-            Ok(input) => op.apply(&input, self),
+            Ok(input) => op.apply(self),
             Err(err) => Err(OperatorErr { op, err }),
         }
     }
@@ -224,17 +224,20 @@ where
     where
         F::Vertex: Coordinate,
     {
-        self.check_apply(ops::Mef {
-            vertices: [from, to],
-            data: (Default::default(), Default::default(), Default::default()),
-        })
+        self.check_apply(
+            ops::Mef {
+                vertices: [from, to],
+                data: (Default::default(), Default::default(), Default::default()),
+            }
+            .into(),
+        )
     }
 
     pub fn kef(&mut self, face: Key<FaceKey>, edges: [Key<EdgeKey>; 2]) -> op_res!(F => ops::Kef)
     where
         F::Vertex: Coordinate,
     {
-        self.check_apply(ops::Kef { face, edges })
+        self.check_apply(ops::Kef { face, edges }.into())
     }
 
     pub fn mekh(&mut self) -> op_res!(F => ops::Mekh) {
@@ -291,5 +294,32 @@ where
 
     pub fn kvh(&mut self, vertex: Key<VertexKey>) -> op_res!(F => ops::Kvh) {
         self.check_apply(ops::Kvh { vertex })
+    }
+}
+
+impl<F: Flavor> Dcel<F> {
+    pub fn translate_vertex(
+        &mut self,
+        key: Key<VertexKey>,
+        delta: impl Coordinate,
+    ) -> op_res!(F => ops::TranslateVertex)
+    where
+        F::Vertex: Coordinate + UpdateCoordinate,
+    {
+        self.check_apply(ops::TranslateVertex {
+            vertex: key,
+            delta: delta.xyz(),
+        })
+    }
+
+    pub fn translate_vertex_abs(
+        &mut self,
+        key: Key<VertexKey>,
+        coord: impl Coordinate,
+    ) -> op_res!(F => ops::TranslateVertex)
+    where
+        F::Vertex: Coordinate + UpdateCoordinate,
+    {
+        self.check_apply(ops::TranslateVertex::from_absolute(self, key, coord))
     }
 }

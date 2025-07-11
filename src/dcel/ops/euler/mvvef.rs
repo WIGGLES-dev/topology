@@ -17,18 +17,13 @@ pub struct Mvvef<F: Flavor> {
 }
 
 impl<F: Flavor> Operator<F> for Mvvef<F> {
-    type Check = ();
     type Error = Infallible;
     type Inverse = Kvvef;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         let outgoing = dcel.edges.reserve();
         let incoming = dcel.edges.reserve();
 
@@ -44,7 +39,7 @@ impl<F: Flavor> Operator<F> for Mvvef<F> {
             },
             weight: self.data.1,
         });
-        
+
         let face = dcel.faces.insert(Face {
             inner: FacePtrs {
                 edge: outgoing,
@@ -53,7 +48,7 @@ impl<F: Flavor> Operator<F> for Mvvef<F> {
             },
             weight: self.data.4,
         });
-        
+
         dcel.edges.set(
             outgoing,
             Edge {
@@ -99,17 +94,12 @@ pub struct Kvvef {
 }
 
 impl<F: Flavor> Operator<F> for Kvvef {
-    type Check = ();
     type Error = Infallible;
     type Inverse = Mvvef<F>;
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
         Ok(())
     }
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         let [v1, v2] = self.vertices;
         let [e1, e2] = self.edges;
 

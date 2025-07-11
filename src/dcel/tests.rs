@@ -29,9 +29,42 @@ fn mev_cycle() {
 
     let uncollapse = collapse.apply(&mut hourglass);
 
+    for (face, key) in hourglass.faces.iter() {
+        println!("------------------");
+        println!("{key}");
+        println!("------------------");
+        for edge in Traverser::through(&hourglass, face.edge).unwrap() {
+            println!("{edge} {}", edge.face(&hourglass));
+        }
+    }
+
     // uncollapse.apply(&mut hourglass);
 
     std::fs::write("./test.mev_cycle.svg", vis::vis_svg(&hourglass)).unwrap();
+}
+
+#[test]
+fn test_cycle() {
+    let (mut draw, [top_left, top_right]) =
+        Draw::new(Dcel::<TestFlavor>::default(), [-2., 2.], [2., 2.]);
+    let bottom_right = draw.line_to([2., -2.]);
+    let bottom_left = draw.line_to([-2., -2.]);
+    draw.close_path(top_left);
+    draw.line_to([-4., 2.]);
+    draw.line_to([-4., -2.]);
+    draw.close_path(bottom_left);
+
+    let square = draw.finish();
+    for (face, key) in square.faces.iter() {
+        println!("------------------");
+        println!("{key}");
+        println!("------------------");
+        for edge in Traverser::through(&square, face.edge).unwrap() {
+            println!("{edge} {}", edge.face(&square));
+        }
+    }
+
+    std::fs::write("./test.mev_cycle.svg", vis::vis_svg(&square)).unwrap();
 }
 
 #[test]

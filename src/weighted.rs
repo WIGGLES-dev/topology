@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 pub struct Weighted<T, W> {
-    pub(crate) inner: T,
+    pub inner: T,
     pub weight: W,
 }
 

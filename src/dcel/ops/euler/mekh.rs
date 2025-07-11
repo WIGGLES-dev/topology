@@ -15,21 +15,15 @@ pub struct Mekh {}
 pub enum MekhError {}
 
 impl<F: Flavor> Operator<F> for Mekh {
-    type Check = ();
-
     type Error = MekhError;
 
     type Inverse = Kemh;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
-        todo!()
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
+        Ok(())
     }
 
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         todo!()
     }
 }
@@ -40,21 +34,15 @@ pub struct Kemh {}
 pub enum KhmeError {}
 
 impl<F: Flavor> Operator<F> for Kemh {
-    type Check = ();
-
     type Error = KhmeError;
 
     type Inverse = Mekh;
 
-    fn check(&self, dcel: &Dcel<F>) -> Result<Self::Check, Self::Error> {
-        todo!()
+    fn check(&self, dcel: &Dcel<F>) -> Result<(), Self::Error> {
+        Ok(())
     }
 
-    fn apply(
-        self,
-        input: &Self::Check,
-        dcel: &mut Dcel<F>,
-    ) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
+    fn apply(self, dcel: &mut Dcel<F>) -> Result<Self::Inverse, OperatorErr<Self, Self::Error>> {
         todo!()
     }
 }
